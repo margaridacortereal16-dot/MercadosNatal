@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guia de Viagem • Basileia, Estrasburgo & Colmar</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+    <!-- Leaflet CSS & JS para marcadores interativos no mapa -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        #trip-map {
+            height: 380px;
+            width: 100%;
+            z-index: 1;
+        }
+        @media (min-width: 768px) {
+            #trip-map {
+                height: 430px;
+            }
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .fade-in {
+            animation: fadeIn 0.25s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .leaflet-popup-content-wrapper {
+            border-radius: 14px;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-rose-500 selection:text-white">
+
+    <!-- Notificação Flutuante (Toast) -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 hidden items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl border border-slate-700 text-sm font-medium">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-message">Copiado!</span>
+    </div>
+
+    <!-- Cabeçalho Hero Colorido -->
+    <header class="bg-gradient-to-br from-rose-600 via-red-600 to-amber-600 text-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <div class="inline-flex items-center gap-2 bg-white/15 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold tracking-wide uppercase mb-2">
+                        <i class="fa-solid fa-snowflake text-amber-200"></i>
+                        <span>Mercados de Natal • 28 Nov – 01 Dez 2026</span>
+                    </div>
+                    <h1 class="font-display text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+                        Basileia, Estrasburgo & Colmar
+                    </h1>
+                    <p class="text-rose-100 text-sm sm:text-base mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span><i class="fa-solid fa-user-group mr-1.5"></i>Margarida Simões & Madalena Lopes</span>
+                        <span class="hidden sm:inline">•</span>
+                        <span><i class="fa-solid fa-hotel mr-1.5"></i>B&B HOTEL Basel</span>
+                    </p>
+                </div>
+
+                <!-- Botão Rápido Conversor Moeda -->
+                <div class="flex items-center gap-2 self-start md:self-center">
+                    <button onclick="openCurrencyModal()" class="bg-white/20 hover:bg-white/30 active:scale-95 transition backdrop-blur-md text-white px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-semibold flex items-center gap-2 border border-white/25 shadow-sm">
+                        <i class="fa-solid fa-coins text-amber-200"></i>
+                        <span>Conversor CHF ↔ EUR</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Barra de Navegação por Separadores -->
+        <nav class="bg-black/15 backdrop-blur-md border-t border-white/10">
+            <div class="max-w-6xl mx-auto px-2 sm:px-6">
+                <div id="tabs-container" class="flex overflow-x-auto no-scrollbar py-2 gap-1.5 sm:gap-2" role="tablist">
+                    <!-- Separadores injetados via JS -->
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Conteúdo Principal -->
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+        <!-- Secção do Mapa Interativo do Dia -->
+        <section id="map-section" class="bg-white rounded-3xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-map-location-dot"></i>
+                    </div>
+                    <div>
+                        <h2 id="map-title" class="font-display font-bold text-slate-900 text-base sm:text-lg">Mapa • Basileia</h2>
+                        <p id="map-subtitle" class="text-xs text-slate-500">Todos os locais e restaurantes marcados no mapa</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="fitCurrentMapMarkers()" class="text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-expand"></i>
+                        <span>Centrar Todos</span>
+                    </button>
+                    <a id="external-gmaps-link" href="https://www.google.com/maps/search/?api=1&query=Basel" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-2 rounded-xl transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                        <span>Abrir no Google Maps</span>
+                    </a>
+                </div>
+            </div>
+            <!-- Container do Mapa Interativo com todos os locais do dia marcados -->
+            <div class="w-full bg-slate-100 relative">
+                <div id="trip-map" class="w-full"></div>
+            </div>
+            <!-- Legenda rápida do mapa -->
+            <div class="px-5 py-2.5 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-rose-600 inline-block"></span> Pontos Turísticos & Estações</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span> Restaurantes Sugeridos</span>
+                <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded-full bg-emerald-600 inline-block"></span> Alojamento (Hotel)</span>
+            </div>
+        </section>
+
+        <!-- Área Dinâmica do Separador Ativo -->
+        <div id="tab-content" class="fade-in">
+            <!-- Preenchido via JavaScript -->
+        </div>
+
+    </main>
+
+    <!-- Modal Conversor CHF <-> EUR -->
+    <div id="currency-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 transform transition-all">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
+                        <i class="fa-solid fa-coins"></i>
+                    </div>
+                    <h3 class="font-display font-bold text-lg text-slate-900">Conversor Rápido CHF ↔ EUR</h3>
+                </div>
+                <button onclick="closeCurrencyModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">Taxa indicativa: 1 CHF ≈ 1,07 EUR (útil para comparar preços em Basileia).</p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Francos Suíços (CHF)</label>
+                    <input type="number" id="input-chf" value="20" oninput="convertFromCHF()" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none font-semibold text-slate-800">
+                </div>
+                <div class="flex justify-center text-slate-400">
+                    <i class="fa-solid fa-right-left rotate-90"></i>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Euros (EUR €)</label>
+                    <input type="number" id="input-eur" value="21.40" oninput="convertFromEUR()" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-semibold text-slate-800">
+                </div>
+            </div>
+            <button onclick="closeCurrencyModal()" class="mt-6 w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl transition">
+                Fechar
+            </button>
+        </div>
+    </div>
+
+    <!-- Script Principal da Aplicação -->
+    <script>
+        /**
+         * Base de Dados Completa da Viagem
+         */
+        const TRIP_DATA = {
+            tabs: [
+                {
+                    id: 'dia1',
+                    label: 'Dia 1 • Sáb 28/11',
+                    shortLabel: 'Dia 1 (Basileia)',
+                    city: 'Basileia',
+                    country: 'Suíça 🇨🇭',
+                    themeColor: 'rose',
+                    gradient: 'from-rose-600 to-pink-600',
+                    icon: 'fa-plane-arrival',
+                    dateFull: 'Sábado, 28 de Novembro de 2026',
+                    headline: 'Chegada a Basileia & Mercados Iluminados',
+                    summary: 'Voo de Lisboa para Basileia, instalação no B&B HOTEL Basel e primeiro passeio noturno pelos mercados de Natal de Grossbasel.',
+                    mapCenter: [47.5545, 7.5925],
+                    mapZoom: 14,
+                    gmapsUrl: 'https://www.google.com/maps/search/?api=1&query=Basel+Christmas+Market',
+                    transportAlert: {
+                        title: 'Voo easyJet EZS1272 • Reserva KDD75CX',
+                        details: 'Partida Lisboa (T1): 10:00 (porta fecha 09:30) → Chegada BSL: 13:45 | Lugares: 17D (Margarida) e 18D (Madalena). Bagagem: 1 mala pequena (45×36×20 cm).'
+                    },
+                    steps: [
+                        {
+                            time: '13:45 – 15:15',
+                            title: 'Chegada ao Aeroporto BSL & Check-in no Hotel',
+                            desc: 'No aeroporto EuroAirport, seguir sempre a sinalização "Suíça" (não França). Apanhar o autocarro n.º 50 até à estação Basel SBB (20 min) e depois o elétrico até ao hotel.',
+                            lat: 47.5413,
+                            lng: 7.6152,
+                            type: 'hotel',
+                            badge: 'Alojamento'
+                        },
+                        {
+                            time: '16:00',
+                            title: 'Theaterplatz & Fonte Tinguely',
+                            desc: 'Início do passeio a pé. Visita à aldeia de Natal Basler Wienachtsdorf (cerca de 40 cabanas de artesanato e gastronomia, aberta até às 23:00 ao sábado).',
+                            lat: 47.5536,
+                            lng: 7.5906,
+                            type: 'sight',
+                            badge: 'Mercado de Natal'
+                        },
+                        {
+                            time: '17:00',
+                            title: 'Barfüsserplatz (5 min a pé)',
+                            desc: 'O maior mercado de Natal de Basileia, em redor da igreja Barfüsserkirche. Destaque para a pirâmide de Natal de 13 metros e o pão com queijo derretido (Chäsbängel).',
+                            lat: 47.5546,
+                            lng: 7.5897,
+                            type: 'sight',
+                            badge: 'Imperdível'
+                        },
+                        {
+                            time: '18:00',
+                            title: 'Münsterplatz, Catedral & Terraço Pfalz',
+                            desc: 'Subida à catedral de arenito vermelho com decoração de conto de fadas. Atrás da catedral, ir ao terraço Pfalz para a vista panorâmica noturna sobre o rio Reno.',
+                            lat: 47.5565,
+                            lng: 7.5925,
+                            type: 'sight',
+                            badge: 'Miradouro'
+                        },
+                        {
+                            time: '19:00',
+                            title: 'Marktplatz & Rathaus (Red Town Hall)',
+                            desc: 'Descer pelas ruelas históricas até à praça principal para admirar a fachada vermelha da Câmara Municipal (Rathaus) e escrever um desejo no Basel Wish Book no pátio interior.',
+                            lat: 47.5581,
+                            lng: 7.5880,
+                            type: 'sight',
+                            badge: 'Centro Histórico'
+                        },
+                        {
+                            time: '19:45',
+                            title: 'Johann Wanner Christmas House (Spalenberg)',
+                            desc: 'A loja de Natal mais famosa e histórica da Europa, repleta de ornamentos de vidro soprado à mão e decorações artesanais extraordinárias mesmo no coração da Old Town.',
+                            lat: 47.5572,
+                            lng: 7.5852,
+                            type: 'sight',
+                            badge: 'Loja Icónica'
+                        }
+                    ],
+                    restaurants: [
+                        {
+                            name: 'Markthalle Basel',
+                            address: 'Steinentorberg 20 (junto à estação Basel SBB)',
+                            price: '10 CHF – 20 CHF',
+                            cuisine: 'Mercado Gastronómico Internacional',
+                            desc: 'Excelente ambiente animado e mesas comunitárias. Ideal para escolher entre dezenas de bancas (asiática, suíça, empanadas, caril) a preços ótimos para a Suíça.',
+                            lat: 47.5492,
+                            lng: 7.5866
+                        },
+                        {
+                            name: 'tibits Basel',
+                            address: 'Stänzlergasse 4 (centro, junto à Barfüsserplatz)',
+                            price: '10 CHF – 25 CHF',
+                            cuisine: 'Buffet Vegetariano & Vegan (ao peso)',
+                            desc: 'Muito prático e saboroso: serves apenas o que quiseres (pratos quentes, saladas criativas, sopas) e pagas ao peso do prato.',
+                            lat: 47.5542,
+                            lng: 7.5889
+                        },
+                        {
+                            name: 'Za Zaa - Petersgraben',
+                            address: 'Petersgraben 15 (centro histórico)',
+                            price: '10 CHF – 26 CHF',
+                            cuisine: 'Libanesa & Mediterrânica',
+                            desc: 'Ótimo para partilhar mezze, falafel crocante, húmus e sopas quentes num espaço acolhedor.',
+                            lat: 47.5594,
+                            lng: 7.5835
+                        }
+                    ],
+                    tips: [
+                        'No check-in no B&B HOTEL Basel, pede imediatamente o teu BaselCard gratuito: dá acesso livre a todos os elétricos e autocarros da cidade e 50% de desconto nos museus.',
+                        'No aeroporto BSL, presta atenção às placas: a saída para a Suíça e para França ficam lado a lado. Escolhe sempre "Suíça / Basel".'
+                    ]
+                },
+                {
+                    id: 'dia2',
+                    label: 'Dia 2 • Dom 29/11',
+                    shortLabel: 'Dia 2 (Estrasburgo)',
+                    city: 'Estrasburgo',
+                    country: 'França 🇫🇷',
+                    themeColor: 'emerald',
+                    gradient: 'from-emerald-600 to-teal-700',
+                    icon: 'fa-train',
+                    dateFull: 'Domingo, 29 de Novembro de 2026',
+                    headline: 'Bate-volta a Estrasburgo — A Capital do Natal',
+                    summary: 'Viagem direta de comboio TER até Estrasburgo para um circuito circular a pé pelos canais da Petite France, Catedral gótica e o Grande Pinheiro.',
+                    mapCenter: [48.5818, 7.7460],
+                    mapZoom: 15,
+                    gmapsUrl: 'https://www.google.com/maps/search/?api=1&query=Strasbourg+Grande+Ile',
+                    transportAlert: {
+                        title: 'Comboios TER fluo Grand Est (SNCF)',
+                        details: 'Ida TER 96218: Basel SBB 09:21 → Strasbourg 10:39 (Refs: AYALBT / 9LQ51E) | Regresso TER 96269: Strasbourg 20:21 → Basel SBB 21:38 (Refs: ZNHUHP / N1TDUY).'
+                    },
+                    steps: [
+                        {
+                            time: '10:40 – 11:15',
+                            title: 'Gare de Strasbourg → Petite France',
+                            desc: 'Caminhada de 15 min até ao bairro mais pitoresco da cidade. Visitar logo pela manhã (antes das multidões) as casas enxaimel, as Ponts Couverts e a Barragem Vauban.',
+                            lat: 48.5801,
+                            lng: 7.7398,
+                            type: 'sight',
+                            badge: 'Cartão-Postal'
+                        },
+                        {
+                            time: '11:45',
+                            title: 'Place Benjamin-Zix & Igreja Saint-Thomas',
+                            desc: 'Passeio pelos pequenos mercados intimistas junto aos canais e visita à histórica igreja gótica de Saint-Thomas.',
+                            lat: 48.5807,
+                            lng: 7.7432,
+                            type: 'sight',
+                            badge: 'Canais'
+                        },
+                        {
+                            time: '12:30',
+                            title: 'Place Gutenberg & Rue Mercière',
+                            desc: 'Subida até à Place Gutenberg (árvore azul iluminada) e entrada na Rue Mercière, o corredor mais fotogénico com anjos luminosos a emoldurar a Catedral.',
+                            lat: 48.5815,
+                            lng: 7.7485,
+                            type: 'sight',
+                            badge: 'Fotografia'
+                        },
+                        {
+                            time: '14:15',
+                            title: 'Catedral de Notre-Dame & Place du Château',
+                            desc: 'Visita ao interior da imponente catedral gótica (atenção ao relógio astronómico) e bancas de artesanato e doçaria alsaciana em redor da praça.',
+                            lat: 48.5818,
+                            lng: 7.7509,
+                            type: 'sight',
+                            badge: 'Monumento'
+                        },
+                        {
+                            time: '15:30',
+                            title: 'Carré d\'Or (Rue des Orfèvres) & Place Broglie',
+                            desc: 'Explorar as ruas estreitas com fachadas repletas de ursos de peluche e seguir até à Place Broglie, sede do Christkindelsmärik (mercado mais antigo de França, desde 1570).',
+                            lat: 48.5846,
+                            lng: 7.7503,
+                            type: 'sight',
+                            badge: 'Tradição 1570'
+                        },
+                        {
+                            time: '17:00 – 19:45',
+                            title: 'Place Kléber ao Anoitecer & Grande Pinheiro',
+                            desc: 'Terminar o circuito na maior praça da cidade para ver o Grand Sapin (30 metros) com espetáculo de luzes e música a cada hora. Caminhada de 12 min até à estação para o comboio das 20:21.',
+                            lat: 48.5833,
+                            lng: 7.7458,
+                            type: 'sight',
+                            badge: 'Show de Luzes'
+                        },
+                        {
+                            time: 'Extra • Centro Histórico',
+                            title: 'Rota das Fachadas & Praças Mágicas de Estrasburgo',
+                            desc: 'Outros pontos imperdíveis da lista no centro histórico: Miradouro Rooftop da Catedral Notre-Dame, Palácio Rohan (Rohan Palace), 24 Rue des Orfèvres (fachada The Book/Dock of Delight), Rue du Maroquin, Rue du Chaudron, Place du Temple-Neuf, Place des Étudiants, Cour du Corbeau, Au Pont Saint-Martin, Cloître Saint-Pierre-le-Jeune e os mercados alternativos Place Grimmeissen (Marché Off).',
+                            lat: 48.5825,
+                            lng: 7.7495,
+                            type: 'sight',
+                            badge: 'Lista Extra'
+                        },
+                        {
+                            time: 'Extra • Passeio Verde',
+                            title: 'Parc de l\'Orangerie',
+                            desc: 'O parque mais antigo e romântico de Estrasburgo (junto às instituições europeias), famoso pelos seus lagos, pavilhões e ninhos de cegonhas.',
+                            lat: 48.5919,
+                            lng: 7.7758,
+                            type: 'sight',
+                            badge: 'Parque'
+                        }
+                    ],
+                    restaurants: [
+                        {
+                            name: 'Square Delicatessen',
+                            address: '12 Rue du Vieux Marché aux Grains (centro)',
+                            price: '10 € – 15 €',
+                            cuisine: 'Italiana / Pizzas & Massas',
+                            desc: 'Opção rápida, descontraída e muito económica no coração da Grande Île, perfeita para recarregar energias ao almoço.',
+                            lat: 48.5822,
+                            lng: 7.7469
+                        },
+                        {
+                            name: 'Muensterstuewel',
+                            address: '8 Place du Marché-aux-Cochons-de-Lait',
+                            price: '20 € – 25 €',
+                            cuisine: 'Tradicional Alsaciana',
+                            desc: 'A dois passos da Catedral, ambiente rústico acolhedor com pratos típicos da Alsácia (choucroute, baeckeoffe, spaetzle).',
+                            lat: 48.5806,
+                            lng: 7.7516
+                        },
+                        {
+                            name: 'Bistro Polo',
+                            address: '11 Rue Sainte-Barbe (junto à Petite France)',
+                            price: '25 € – 30 €',
+                            cuisine: 'Bistrô Francês Clássico',
+                            desc: 'Ambiente animado e cozinha francesa caseira muito bem avaliada perto dos canais.',
+                            lat: 48.5813,
+                            lng: 7.7445
+                        }
+                    ],
+                    tips: [
+                        'Cheguem à estação de Basel SBB às 09:05: os comboios franceses TER partem geralmente das plataformas francesas (SNCF) na ala oeste da estação.',
+                        'Como anoitece por volta das 16:45, aproveitem a luz da manhã e início da tarde para fotografar a Petite France e deixem a Place Kléber para depois das 17:00.'
+                    ]
+                },
+                {
+                    id: 'dia3',
+                    label: 'Dia 3 • Seg 30/11',
+                    shortLabel: 'Dia 3 (Colmar)',
+                    city: 'Colmar',
+                    country: 'França 🇫🇷',
+                    themeColor: 'amber',
+                    gradient: 'from-amber-500 to-orange-600',
+                    icon: 'fa-camera-retro',
+                    dateFull: 'Segunda-feira, 30 de Novembro de 2026',
+                    headline: 'Conto de Fadas em Colmar & Petite Venise',
+                    summary: 'Manhã tranquila em Basileia e viagem curta de comboio (44 min) até Colmar para percorrer os canais coloridos, casas renascentistas e 6 mercados de Natal.',
+                    mapCenter: [48.0768, 7.3585],
+                    mapZoom: 15,
+                    gmapsUrl: 'https://www.google.com/maps/search/?api=1&query=Colmar+Petite+Venise',
+                    transportAlert: {
+                        title: 'Comboios TER fluo Grand Est (SNCF)',
+                        details: 'Ida TER 96222: Basel SBB 11:21 → Colmar 12:05 (Refs: FQA3Q7 / KQ3X7M) | Regresso TER 96247: Colmar 19:53 → Basel SBB 20:38 (Refs: ZUP7FH / IVKL7U).'
+                    },
+                    steps: [
+                        {
+                            time: '12:05 – 12:30',
+                            title: 'Estação de Colmar → Parc du Champ de Mars',
+                            desc: 'Caminhada agradável de 10 minutos pela Avenue de la République até ao parque central que dá entrada na cidade antiga.',
+                            lat: 48.0758,
+                            lng: 7.3532,
+                            type: 'sight',
+                            badge: 'Chegada'
+                        },
+                        {
+                            time: '12:40',
+                            title: 'Petite Venise & Quai de la Poissonnerie',
+                            desc: 'O cenário mais famoso de Colmar: casas coloridas em enxaimel refletidas no rio Lauch. Tirar fotos da ponte da Rue Turenne e passear pelo cais dos pescadores.',
+                            lat: 48.0736,
+                            lng: 7.3596,
+                            type: 'sight',
+                            badge: 'Imperdível'
+                        },
+                        {
+                            time: '13:30',
+                            title: 'Marché Couvert (Mercado Coberto)',
+                            desc: 'Mesmo junto ao canal, ótimo para entrar no calor e explorar bancas de queijos locais, charcutaria, bretzels e doces da Alsácia.',
+                            lat: 48.0746,
+                            lng: 7.3597,
+                            type: 'sight',
+                            badge: 'Gastronomia'
+                        },
+                        {
+                            time: '15:00',
+                            title: 'Quartier des Tanneurs & Koïfhus (Antiga Alfândega)',
+                            desc: 'Subir pelas ruelas medievais do bairro dos curtidores até ao edifício histórico Koïfhus, com mercado de artesãos no interior e bancas de Natal na praça.',
+                            lat: 48.0762,
+                            lng: 7.3588,
+                            type: 'sight',
+                            badge: 'Artesanato'
+                        },
+                        {
+                            time: '15:45',
+                            title: 'Maison Pfister & Colegiada de Saint-Martin',
+                            desc: 'Admirar a Maison Pfister na Rue des Marchands (joia renascentista com varandas de madeira) e a igreja gótica de Saint-Martin.',
+                            lat: 48.0772,
+                            lng: 7.3580,
+                            type: 'sight',
+                            badge: 'Arquitetura'
+                        },
+                        {
+                            time: '16:30 – 19:20',
+                            title: 'Place Jeanne d\'Arc & Place des Dominicains',
+                            desc: 'Provar biscoitos bredele na Place Jeanne d\'Arc e ver os vitrais iluminados da igreja dos Dominicanos ao entardecer. Regresso pela Grand Rue até à estação (comboio às 19:53).',
+                            lat: 48.0785,
+                            lng: 7.3568,
+                            type: 'sight',
+                            badge: 'Iluminações'
+                        },
+                        {
+                            time: 'Extra • Centro de Colmar',
+                            title: 'Maison des Têtes, Fonte Bartholdi, Fontaine Bruat & Market Square',
+                            desc: 'Paragens adicionais no centro histórico de Colmar: a célebre Maison des Têtes (fachada com mais de 100 cabeças esculpidas), a Fonte Bartholdi, a Fontaine Bruat no parque e a Place de l\'Ancienne Douane.',
+                            lat: 48.0779,
+                            lng: 7.3556,
+                            type: 'sight',
+                            badge: 'Lista Extra'
+                        },
+                        {
+                            time: 'Extra • Aldeias da Rota dos Vinhos',
+                            title: 'Eguisheim, Kaysersberg Bridge & Riquewihr Tower (Dolder)',
+                            desc: 'Aldeias medievais vizinhas de Colmar (acessíveis por autocarro turístico Navette de Noël / táxi): ruelas circulares de Eguisheim, a ponte fortificada de Kaysersberg e a torre Dolder de Riquewihr.',
+                            lat: 48.1665,
+                            lng: 7.2974,
+                            type: 'sight',
+                            badge: 'Aldeias Vizinhas'
+                        }
+                    ],
+                    restaurants: [
+                        {
+                            name: 'Wistub Brenner',
+                            address: '1 Rue Turenne (Petite Venise, junto ao canal)',
+                            price: '12 € – 22 €',
+                            cuisine: 'Wistub Alsaciana',
+                            desc: 'Localização privilegiada na Petite Venise. Para manter o orçamento económico, peçam uma Tarte Flambée (Flammekueche) tradicional ou o prato do dia.',
+                            lat: 48.0734,
+                            lng: 7.3593
+                        },
+                        {
+                            name: 'Le Fer Rouge',
+                            address: '52 Grand Rue (centro histórico)',
+                            price: '15 € – 28 €',
+                            cuisine: 'Especialidades da Alsácia',
+                            desc: 'Edifício histórico encantador com decoração artística e doses muito generosas de pratos regionais.',
+                            lat: 48.0757,
+                            lng: 7.3587
+                        }
+                    ],
+                    tips: [
+                        'Colmar é muito compacta: todas as atrações ficam a menos de 10 minutos a pé umas das outras.',
+                        'Não deixem de provar o Vin Chaud Blanc (vinho quente branco da Alsácia, feito com Riesling ou Pinot Blanc e especiarias) — é típico desta região!'
+                    ]
+                },
+                {
+                    id: 'dia4',
+                    label: 'Dia 4 • Ter 01/12',
+                    shortLabel: 'Dia 4 (Regresso)',
+                    city: 'Basileia',
+                    country: 'Suíça 🇨🇭',
+                    themeColor: 'indigo',
+                    gradient: 'from-indigo-600 to-blue-700',
+                    icon: 'fa-plane-departure',
+                    dateFull: 'Terça-feira, 1 de Dezembro de 2026',
+                    headline: 'Rio Reno, Kleinbasel & Voo de Regresso',
+                    summary: 'Check-out com calma, travessia da Ponte do Meio sobre o rio Reno, exploração de Kleinbasel e Spalentor antes de seguir para o aeroporto BSL.',
+                    mapCenter: [47.5595, 7.5890],
+                    mapZoom: 14,
+                    gmapsUrl: 'https://www.google.com/maps/search/?api=1&query=Mittlere+Brucke+Basel',
+                    transportAlert: {
+                        title: 'Voo easyJet EJU7678 • Reserva KDD75CX',
+                        details: 'Partida BSL: 21:10 (porta fecha 20:40) → Chegada Lisboa (T1): 23:00 | Lugares: L27E (Margarida) e L27F (Madalena). Sair do hotel às 18:30.'
+                    },
+                    steps: [
+                        {
+                            time: '09:30',
+                            title: 'Check-out & Guarda de Bagagem no Hotel',
+                            desc: 'Tomar o pequeno-almoço incluído no B&B HOTEL Basel, fazer o check-out e deixar as malas guardadas gratuitamente na sala de bagagens da receção.',
+                            lat: 47.5413,
+                            lng: 7.6152,
+                            type: 'hotel',
+                            badge: 'Check-out'
+                        },
+                        {
+                            time: '10:30',
+                            title: 'Mittlere Brücke (Ponte do Meio)',
+                            desc: 'Atravessar a pé a ponte histórica mais antiga sobre o rio Reno até à margem oposta (Kleinbasel), com vista panorâmica para as torres da Catedral.',
+                            lat: 47.5601,
+                            lng: 7.5897,
+                            type: 'sight',
+                            badge: 'Rio Reno'
+                        },
+                        {
+                            time: '11:30',
+                            title: 'Claraplatz & Passeio pela Rheingasse',
+                            desc: 'Paragem na cabana alpina de Claraplatz e passeio pela rua ribeirinha Rheingasse (onde funciona o mercado gastronómico Adväntsgass a partir das 17:00).',
+                            lat: 47.5625,
+                            lng: 7.5932,
+                            type: 'sight',
+                            badge: 'Kleinbasel'
+                        },
+                        {
+                            time: '14:30',
+                            title: 'Spalentor (Spalen Gate) & Compras na Freie Strasse',
+                            desc: 'Seguir de elétrico até à Spalentor, a mais imponente porta medieval da antiga muralha de Basileia, e regressar pelas ruas comerciais Freie Strasse e Gerbergasse.',
+                            lat: 47.5579,
+                            lng: 7.5813,
+                            type: 'sight',
+                            badge: 'Muralha Medieval'
+                        },
+                        {
+                            time: '16:00',
+                            title: 'Kleines Klingental, Walk along Rhine River & L\'Unique Wall of Art',
+                            desc: 'Caminhada junto ao rio Reno (Rhine River) passando pelo antigo convento Kleines Klingental, pela Igreja de São Paulo (St. Paul\'s Church) e pelo mural artístico L\'Unique Wall of Art.',
+                            lat: 47.5620,
+                            lng: 7.5912,
+                            type: 'sight',
+                            badge: 'Arte & Reno'
+                        },
+                        {
+                            time: '17:00',
+                            title: 'Three Countries Bridge (Dreiländereck)',
+                            desc: 'A ponte pedonal mais longa em arco do mundo, ligando a Suíça, a França e a Alemanha mesmo no ponto de encontro das três fronteiras sobre o Reno.',
+                            lat: 47.5917,
+                            lng: 7.5898,
+                            type: 'sight',
+                            badge: '3 Fronteiras'
+                        },
+                        {
+                            time: '18:30 – 20:40',
+                            title: 'Recolha de Malas & Ida para o Aeroporto BSL',
+                            desc: 'Recolher as malas no hotel às 18:30, seguir até Basel SBB e apanhar o autocarro n.º 50 para o aeroporto (gratuito com o BaselCard). A porta fecha às 20:40.',
+                            lat: 47.5474,
+                            lng: 7.5896,
+                            type: 'sight',
+                            badge: 'Aeroporto'
+                        }
+                    ],
+                    restaurants: [
+                        {
+                            name: 'Markthalle Basel',
+                            address: 'Steinentorberg 20 (junto à estação SBB)',
+                            price: '10 CHF – 20 CHF',
+                            cuisine: 'Bancas Internacionais & Café',
+                            desc: 'Excelente opção para um lanche-ajantar cedo antes de apanhar o autocarro n.º 50 na estação mesmo ao lado.',
+                            lat: 47.5492,
+                            lng: 7.5866
+                        },
+                        {
+                            name: 'tibits Basel Gundeli',
+                            address: 'Meret Oppenheim-Strasse 1 (saída sul da estação SBB)',
+                            price: '10 CHF – 25 CHF',
+                            cuisine: 'Buffet Vegetariano & Vegan',
+                            desc: 'Localizado mesmo nas traseiras da estação ferroviária, muito conveniente antes da ida para o aeroporto.',
+                            lat: 47.5463,
+                            lng: 7.5888
+                        }
+                    ],
+                    tips: [
+                        'O BaselCard continua válido durante todo o dia do check-out! Podem usá-lo no autocarro n.º 50 até ao aeroporto BSL.',
+                        'No aeroporto BSL, lembrem-se que a mala pequena tem de caber debaixo do assento (45×36×20 cm), por isso deixem espaço se comprarem chocolates ou biscoitos bredele.'
+                    ]
+                },
+                {
+                    id: 'docs',
+                    label: 'Bilhetes & Reservas',
+                    shortLabel: 'Documentos',
+                    city: 'Carteira Digital',
+                    country: 'Todos os Códigos',
+                    themeColor: 'slate',
+                    gradient: 'from-slate-800 to-slate-900',
+                    icon: 'fa-ticket',
+                    dateFull: 'Documentação Oficial da Viagem',
+                    headline: 'Carteira de Bilhetes, Voos & Hotel',
+                    summary: 'Todos os números de reserva, horários de comboio e moradas num só lugar. Clica em qualquer código para copiar rapidamente.',
+                    mapCenter: [48.05, 7.60],
+                    mapZoom: 8,
+                    gmapsUrl: 'https://www.google.com/maps/dir/Basel/Colmar/Strasbourg',
+                    isDocsTab: true
+                }
+            ]
+        };
+
+        // Estado global da aplicação
+        let currentTabId = 'dia1';
+        let leafletMap = null;
+        let markersLayer = null;
+        let markersRegistry = {};
+
+        /**
+         * Inicializa a aplicação após o carregamento completo da página
+         */
+        window.onload = function() {
+            initInteractiveMap();
+            renderTabs();
+            selectTab('dia1');
+        };
+
+        /**
+         * Inicializa o mapa interativo Leaflet com camada ArcGIS Street Map
+         */
+        function initInteractiveMap() {
+            leafletMap = L.map('trip-map', {
+                scrollWheelZoom: false
+            }).setView([47.5545, 7.5925], 14);
+
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri',
+                maxZoom: 19
+            }).addTo(leafletMap);
+
+            markersLayer = L.layerGroup().addTo(leafletMap);
+        }
+
+        /**
+         * Cria ícone colorido personalizado para cada marcador do mapa
+         */
+        function createCustomMarkerIcon(label, bgColor) {
+            return L.divIcon({
+                className: 'custom-pin-icon',
+                html: `<div style="background-color:${bgColor};color:#ffffff;width:28px;height:28px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2.5px solid #ffffff;box-shadow:0 3px 8px rgba(0,0,0,0.35);">${label}</div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14],
+                popupAnchor: [0, -14]
+            });
+        }
+
+        /**
+         * Atualiza o mapa e desenha todos os locais do separador escolhido
+         */
+        function updateMapForTab(tab) {
+            const mapTitleEl = document.getElementById('map-title');
+            const mapSubEl = document.getElementById('map-subtitle');
+            const gmapsLinkEl = document.getElementById('external-gmaps-link');
+
+            if (!leafletMap || !markersLayer) return;
+
+            gmapsLinkEl.href = tab.gmapsUrl;
+            markersLayer.clearLayers();
+            markersRegistry = {};
+
+            if (tab.isDocsTab) {
+                mapTitleEl.textContent = 'Mapa • Região das Três Fronteiras';
+                mapSubEl.textContent = 'Visão geral entre Basileia (Suíça), Colmar e Estrasburgo (França)';
+
+                const cities = [
+                    { name: 'Basileia (Suíça) — B&B HOTEL Basel', lat: 47.5413, lng: 7.6152, color: '#059669', label: 'CH' },
+                    { name: 'Colmar (França)', lat: 48.0768, lng: 7.3585, color: '#D97706', label: 'CO' },
+                    { name: 'Estrasburgo (França)', lat: 48.5818, lng: 7.7460, color: '#E11D48', label: 'ST' }
+                ];
+
+                const bounds = [];
+                cities.forEach(c => {
+                    L.marker([c.lat, c.lng], { icon: createCustomMarkerIcon(c.label, c.color) })
+                        .bindPopup(`<strong>${c.name}</strong>`)
+                        .addTo(markersLayer);
+                    bounds.push([c.lat, c.lng]);
+                });
+
+                leafletMap.invalidateSize();
+                leafletMap.fitBounds(bounds, { padding: [45, 45] });
+                return;
+            }
+
+            mapTitleEl.textContent = `Mapa • ${tab.city} (${tab.country}) — ${tab.steps.length} Locais + ${tab.restaurants.length} Restaurantes`;
+            mapSubEl.textContent = 'Clica nos marcadores do mapa ou nos botões "Ver no Mapa" de cada paragem e restaurante';
+
+            const bounds = [];
+            const routeCoords = [];
+
+            tab.steps.forEach((step, idx) => {
+                const isHotel = step.type === 'hotel';
+                const pinColor = isHotel ? '#059669' : '#E11D48';
+                const marker = L.marker([step.lat, step.lng], {
+                    icon: createCustomMarkerIcon(`${idx + 1}`, pinColor)
+                }).bindPopup(`
+                    <div style="min-width:190px;font-family:Inter,sans-serif;">
+                        <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:${pinColor};">${step.badge} • ${step.time}</span>
+                        <div style="font-weight:700;font-size:13px;color:#0f172a;margin-top:2px;">${idx + 1}. ${step.title}</div>
+                        <div style="font-size:11px;color:#475569;margin-top:4px;line-height:1.35;">${step.desc}</div>
+                    </div>
+                `).addTo(markersLayer);
+
+                markersRegistry[`step-${idx}`] = marker;
+                bounds.push([step.lat, step.lng]);
+                routeCoords.push([step.lat, step.lng]);
+            });
+
+            if (routeCoords.length > 1) {
+                L.polyline(routeCoords, {
+                    color: '#E11D48',
+                    weight: 3,
+                    opacity: 0.55,
+                    dashArray: '6, 8'
+                }).addTo(markersLayer);
+            }
+
+            tab.restaurants.forEach((rest, idx) => {
+                const marker = L.marker([rest.lat, rest.lng], {
+                    icon: createCustomMarkerIcon('R', '#F59E0B')
+                }).bindPopup(`
+                    <div style="min-width:190px;font-family:Inter,sans-serif;">
+                        <span style="font-size:10px;font-weight:700;text-transform:uppercase;color:#B45309;">Restaurante • ${rest.price}</span>
+                        <div style="font-weight:700;font-size:13px;color:#0f172a;margin-top:2px;">${rest.name}</div>
+                        <div style="font-size:11px;color:#64748b;margin-top:2px;">${rest.address}</div>
+                        <div style="font-size:11px;color:#475569;margin-top:4px;line-height:1.35;">${rest.desc}</div>
+                    </div>
+                `).addTo(markersLayer);
+
+                markersRegistry[`rest-${idx}`] = marker;
+                bounds.push([rest.lat, rest.lng]);
+            });
+
+            leafletMap.invalidateSize();
+            if (bounds.length > 0) {
+                leafletMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+            } else {
+                leafletMap.setView(tab.mapCenter, tab.mapZoom);
+            }
+        }
+
+        function fitCurrentMapMarkers() {
+            const tab = TRIP_DATA.tabs.find(t => t.id === currentTabId);
+            if (tab) {
+                updateMapForTab(tab);
+            }
+        }
+
+        function focusOnMap(markerKey, lat, lng) {
+            const mapSec = document.getElementById('map-section');
+            mapSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            if (leafletMap) {
+                leafletMap.setView([lat, lng], 16, { animate: true });
+                const marker = markersRegistry[markerKey];
+                if (marker) {
+                    setTimeout(() => {
+                        marker.openPopup();
+                    }, 300);
+                }
+            }
+        }
+
+        function renderTabs() {
+            const container = document.getElementById('tabs-container');
+            container.innerHTML = TRIP_DATA.tabs.map(tab => `
+                <button
+                    id="tab-btn-${tab.id}"
+                    onclick="selectTab('${tab.id}')"
+                    role="tab"
+                    class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2 text-white/85 hover:bg-white/15">
+                    <i class="fa-solid ${tab.icon}"></i>
+                    <span>${tab.label}</span>
+                </button>
+            `).join('');
+        }
+
+        function selectTab(tabId) {
+            currentTabId = tabId;
+            const tab = TRIP_DATA.tabs.find(t => t.id === tabId);
+            if (!tab) return;
+
+            TRIP_DATA.tabs.forEach(t => {
+                const btn = document.getElementById(`tab-btn-${t.id}`);
+                if (btn) {
+                    if (t.id === tabId) {
+                        btn.className = 'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all flex items-center gap-2 bg-white text-slate-900 shadow-md scale-[1.02]';
+                    } else {
+                        btn.className = 'px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2 text-white/85 hover:bg-white/15';
+                    }
+                }
+            });
+
+            updateMapForTab(tab);
+
+            const contentDiv = document.getElementById('tab-content');
+            contentDiv.classList.remove('fade-in');
+            void contentDiv.offsetWidth;
+            contentDiv.classList.add('fade-in');
+
+            if (tab.isDocsTab) {
+                contentDiv.innerHTML = renderDocsTab();
+            } else {
+                contentDiv.innerHTML = renderDayTab(tab);
+            }
+        }
+
+        function renderDayTab(tab) {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-gradient-to-r ${tab.gradient} text-white rounded-3xl p-6 sm:p-8 shadow-md">
+                        <div class="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/85 mb-2">
+                            <span>${tab.dateFull}</span>
+                            <span>•</span>
+                            <span>${tab.city} (${tab.country})</span>
+                        </div>
+                        <h2 class="font-display text-2xl sm:text-3xl font-extrabold">${tab.headline}</h2>
+                        <p class="text-white/90 text-sm sm:text-base mt-2 max-w-3xl leading-relaxed">${tab.summary}</p>
+
+                        ${tab.transportAlert ? `
+                            <div class="mt-5 bg-black/20 backdrop-blur-md border border-white/15 rounded-2xl p-4 flex items-start gap-3">
+                                <div class="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center shrink-0 mt-0.5">
+                                    <i class="fa-solid ${tab.icon}"></i>
+                                </div>
+                                <div class="text-xs sm:text-sm">
+                                    <p class="font-bold text-white">${tab.transportAlert.title}</p>
+                                    <p class="text-white/90 mt-0.5">${tab.transportAlert.details}</p>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div class="lg:col-span-7 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="font-display font-bold text-lg sm:text-xl text-slate-900 flex items-center gap-2">
+                                    <i class="fa-solid fa-route text-rose-600"></i>
+                                    <span>Percurso a Pé & Paragens</span>
+                                </h3>
+                                <span class="text-xs font-medium text-slate-500">${tab.steps.length} etapas</span>
+                            </div>
+
+                            <div class="space-y-3">
+                                ${tab.steps.map((step, idx) => `
+                                    <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 hover:border-rose-300 transition group">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="flex items-center gap-3">
+                                                <span class="w-7 h-7 rounded-full ${step.type === 'hotel' ? 'bg-emerald-600' : 'bg-rose-600'} text-white font-bold text-xs flex items-center justify-center shrink-0">
+                                                    ${idx + 1}
+                                                </span>
+                                                <div>
+                                                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wide">${step.time}</span>
+                                                    <h4 class="font-bold text-slate-900 text-base leading-snug">${step.title}</h4>
+                                                </div>
+                                            </div>
+                                            <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 shrink-0">
+                                                ${step.badge}
+                                            </span>
+                                        </div>
+                                        <p class="text-slate-600 text-sm mt-2.5 leading-relaxed">${step.desc}</p>
+                                        <div class="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                                            <button onclick="focusOnMap('step-${idx}', ${step.lat}, ${step.lng})" class="text-xs font-semibold text-rose-600 hover:text-rose-700 flex items-center gap-1.5 py-1">
+                                                <i class="fa-solid fa-location-crosshairs"></i>
+                                                <span>Ver no Mapa</span>
+                                            </button>
+                                            <a href="https://www.google.com/maps/search/?api=1&query=${step.lat},${step.lng}" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-400 hover:text-slate-600">
+                                                Direções GPS <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-0.5"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-5 space-y-6">
+                            <div class="space-y-4">
+                                <h3 class="font-display font-bold text-lg sm:text-xl text-slate-900 flex items-center gap-2">
+                                    <i class="fa-solid fa-utensils text-amber-500"></i>
+                                    <span>Onde Comer (Bons & Económicos)</span>
+                                </h3>
+
+                                <div class="space-y-3">
+                                    ${tab.restaurants.map((rest, idx) => `
+                                        <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 hover:border-amber-300 transition">
+                                            <div class="flex items-start justify-between gap-2">
+                                                <h4 class="font-bold text-slate-900 text-base">${rest.name}</h4>
+                                                <span class="bg-amber-100 text-amber-800 text-xs font-extrabold px-2.5 py-1 rounded-xl shrink-0">
+                                                    ${rest.price}
+                                                </span>
+                                            </div>
+                                            <p class="text-xs font-semibold text-amber-600 mt-0.5">${rest.cuisine}</p>
+                                            <p class="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                                                <i class="fa-solid fa-location-dot text-slate-400"></i>
+                                                <span>${rest.address}</span>
+                                            </p>
+                                            <p class="text-sm text-slate-600 mt-2.5 leading-relaxed">${rest.desc}</p>
+                                            <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                                                <button onclick="focusOnMap('rest-${idx}', ${rest.lat}, ${rest.lng})" class="text-xs font-semibold text-amber-600 hover:text-amber-700 flex items-center gap-1.5 py-1">
+                                                    <i class="fa-solid fa-map-pin"></i>
+                                                    <span>Ver no Mapa</span>
+                                                </button>
+                                                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rest.name + ' ' + tab.city)}" target="_blank" rel="noopener noreferrer" class="text-xs text-slate-400 hover:text-slate-600">
+                                                    Google Maps <i class="fa-solid fa-arrow-up-right-from-square text-[10px] ml-0.5"></i>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div class="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl p-5 border border-amber-200/70">
+                                <h4 class="font-display font-bold text-amber-900 text-base flex items-center gap-2 mb-3">
+                                    <i class="fa-solid fa-lightbulb text-amber-500"></i>
+                                    <span>Dicas & Sugestões do Especialista</span>
+                                </h4>
+                                <ul class="space-y-2.5">
+                                    ${tab.tips.map(tip => `
+                                        <li class="flex items-start gap-2.5 text-sm text-amber-950/85 leading-relaxed">
+                                            <i class="fa-solid fa-check-circle text-amber-600 mt-1 shrink-0 text-xs"></i>
+                                            <span>${tip}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDocsTab() {
+            return `
+                <div class="space-y-6">
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-plane"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-display font-bold text-lg text-slate-900">Voos easyJet</h3>
+                                    <p class="text-xs text-slate-500">1 mala pequena debaixo do assento (45×36×20 cm) por passageira</p>
+                                </div>
+                            </div>
+                            <button onclick="copyText('KDD75CX')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition">
+                                <span>Ref: KDD75CX</span>
+                                <i class="fa-regular fa-copy text-slate-500"></i>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                                <span class="text-xs font-bold uppercase text-orange-600">Ida • Sábado, 28 Nov 2026</span>
+                                <div class="flex items-center justify-between mt-2">
+                                    <div>
+                                        <p class="text-xl font-extrabold text-slate-900">10:00</p>
+                                        <p class="text-xs font-semibold text-slate-500">Lisboa (LIS • T1)</p>
+                                    </div>
+                                    <div class="text-center px-3">
+                                        <span class="text-xs font-bold text-slate-400">EZS1272</span>
+                                        <div class="w-16 h-0.5 bg-slate-300 my-1"></div>
+                                        <span class="text-[10px] text-rose-600 font-semibold">Porta: 09:30</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-xl font-extrabold text-slate-900">13:45</p>
+                                        <p class="text-xs font-semibold text-slate-500">Basileia (BSL)</p>
+                                    </div>
+                                </div>
+                                <div class="mt-3 pt-2.5 border-t border-slate-200/70 text-xs text-slate-600 flex justify-between">
+                                    <span>Margarida: <strong>17D</strong></span>
+                                    <span>Madalena: <strong>18D</strong></span>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70">
+                                <span class="text-xs font-bold uppercase text-indigo-600">Regresso • Terça, 01 Dez 2026</span>
+                                <div class="flex items-center justify-between mt-2">
+                                    <div>
+                                        <p class="text-xl font-extrabold text-slate-900">21:10</p>
+                                        <p class="text-xs font-semibold text-slate-500">Basileia (BSL)</p>
+                                    </div>
+                                    <div class="text-center px-3">
+                                        <span class="text-xs font-bold text-slate-400">EJU7678</span>
+                                        <div class="w-16 h-0.5 bg-slate-300 my-1"></div>
+                                        <span class="text-[10px] text-rose-600 font-semibold">Porta: 20:40</span>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-xl font-extrabold text-slate-900">23:00</p>
+                                        <p class="text-xs font-semibold text-slate-500">Lisboa (LIS • T1)</p>
+                                    </div>
+                                </div>
+                                <div class="mt-3 pt-2.5 border-t border-slate-200/70 text-xs text-slate-600 flex justify-between">
+                                    <span>Margarida: <strong>L27E</strong></span>
+                                    <span>Madalena: <strong>L27F</strong></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80">
+                        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg">
+                                    <i class="fa-solid fa-hotel"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-display font-bold text-lg text-slate-900">B&B HOTEL Basel (3★)</h3>
+                                    <p class="text-xs text-slate-500">St. Jakobs-Strasse 193-195, 4052 Basel • Tel: +41 61 551 24 24</p>
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="copyText('GBN-142963')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                                    <span>Jet Travel: GBN-142963</span>
+                                    <i class="fa-regular fa-copy text-slate-500"></i>
+                                </button>
+                                <button onclick="copyText('402008016')" class="bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                                    <span>Hotel: 402008016</span>
+                                    <i class="fa-regular fa-copy text-slate-500"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                            <div class="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/60">
+                                <p class="text-emerald-800 font-bold">Estadia & Regime</p>
+                                <p class="text-slate-700 mt-1">28 Nov a 01 Dez (3 noites) • Quarto Twin com Pequeno-almoço incluído.</p>
+                            </div>
+                            <div class="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/60">
+                                <p class="text-amber-800 font-bold">Taxa Turística</p>
+                                <p class="text-slate-700 mt-1">25,20 CHF a pagar no hotel. Pedir o <strong>BaselCard</strong> gratuito no check-in!</p>
+                            </div>
+                            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
+                                <p class="text-slate-800 font-bold">Comodidades</p>
+                                <p class="text-slate-700 mt-1">Receção 24h, Wi-Fi gratuito e sala de bagagens no dia de saída.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/80">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-lg">
+                                <i class="fa-solid fa-train-subway"></i>
+                            </div>
+                            <div>
+                                <h3 class="font-display font-bold text-lg text-slate-900">Bilhetes de Comboio TER (SNCF fluo Grand Est)</h3>
+                                <p class="text-xs text-slate-500">Bilhetes nominativos (levar Cartão de Cidadão/Passaporte) • Chegar 5 min antes</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-bold text-emerald-700">Dom, 29 Nov • TER 96218</span>
+                                    <span class="text-xs font-extrabold text-slate-800">09:21 → 10:39</span>
+                                </div>
+                                <p class="text-sm font-bold text-slate-900">Basel SBB → Strasbourg</p>
+                                <div class="flex flex-wrap gap-2 pt-1">
+                                    <button onclick="copyText('AYALBT')" class="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-100">
+                                        Margarida: <strong>AYALBT</strong> <i class="fa-regular fa-copy ml-1 text-slate-400"></i>
+                                    </button>
+                                    <button onclick="copyText('9LQ51E')" class="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-100">
+                                        Madalena: <strong>9LQ51E</strong> <i class="fa-regular fa-copy ml-1 text-slate-400"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-bold text-emerald-700">Dom, 29 Nov • TER 96269</span>
+                                    <span class="text-xs font-extrabold text-slate-800">20:21 → 21:38</span>
+                                </div>
+                                <p class="text-sm font-bold text-slate-900">Strasbourg → Basel SBB</p>
+                                <div class="flex flex-wrap gap-2 pt-1">
+                                    <button onclick="copyText('ZNHUHP')" class="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-100">
+                                        Margarida: <strong>ZNHUHP</strong> <i class="fa-regular fa-copy ml-1 text-slate-400"></i>
+                                    </button>
+                                    <button onclick="copyText('N1TDUY')" class="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-100">
+                                        Madalena: <strong>N1TDUY</strong> <i class="fa-regular fa-copy ml-1 text-slate-400"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-bold text-amber-700">Seg, 30 Nov • TER 96222</span>
+                                    <span class="text-xs font-extrabold text-slate-800">11:21 → 12:05</span>
+                                </div>
+                                <p class="text-sm font-bold text-slate-900">Basel SBB → Colmar</p>
+                                <div class="flex flex-wrap gap-2 pt-1">
+                                    <button onclick="copyText('FQA3Q7')" class="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-100">
+                                        Margarida: <strong>FQA3Q7</strong> <i class="fa-regular fa-copy ml-1 text-slate-400"></i>
+                                    </button>
+                                    <button onclick="copyText('KQ3X7M')" class="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-100">
+                                        Madalena: <strong>KQ3X7M</strong> <i class="fa-regular fa-copy ml-1 text-slate-400"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-xs font-bold text-amber-700">Seg, 30 Nov • TER 96247</span>
+                                    <span class="text-xs font-extrabold text-slate-800">19:53 → 20:38</span>
+                                </div>
+                                <p class="text-sm font-bold text-slate-900">Colmar → Basel SBB</p>
+                                <div class="flex flex-wrap gap-2 pt-1">
+                                    <button onclick="copyText('ZUP7FH')" class="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-100">
+                                        Margarida: <strong>ZUP7FH</strong> <i class="fa-regular fa-copy ml-1 text-slate-400"></i>
+                                    </button>
+                                    <button onclick="copyText('IVKL7U')" class="bg-white border border-slate-200 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-slate-100">
+                                        Madalena: <strong>IVKL7U</strong> <i class="fa-regular fa-copy ml-1 text-slate-400"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function copyText(text) {
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast(`Código "${text}" copiado!`);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const msgEl = document.getElementById('toast-message');
+            msgEl.textContent = msg;
+            toast.classList.remove('hidden');
+            toast.classList.add('flex');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+                toast.classList.remove('flex');
+            }, 2600);
+        }
+
+        const CHF_TO_EUR = 1.07;
+
+        function openCurrencyModal() {
+            const modal = document.getElementById('currency-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeCurrencyModal() {
+            const modal = document.getElementById('currency-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function convertFromCHF() {
+            const chf = parseFloat(document.getElementById('input-chf').value) || 0;
+            document.getElementById('input-eur').value = (chf * CHF_TO_EUR).toFixed(2);
+        }
+
+        function convertFromEUR() {
+            const eur = parseFloat(document.getElementById('input-eur').value) || 0;
+            document.getElementById('input-chf').value = (eur / CHF_TO_EUR).toFixed(2);
+        }
+    </script>
+</body>
+</html>
